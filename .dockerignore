@@ -1,0 +1,4 @@
+auto/*
+.git*
+pipeline.gocd.yaml
+docker-compose.yaml

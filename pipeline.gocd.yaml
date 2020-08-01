@@ -1,0 +1,99 @@
+format_version: 2
+common:
+  tasks:
+    deploy: &deploy
+      script: |
+        set -e
+
+        helm upgrade --install --wait --timeout 300 \
+          --namespace ${PROJECT}-$K8S_NAMESPACE \
+          ${CHART_NAME}-$K8S_NAMESPACE \
+          ./chart/${CHART_NAME}-*.tgz \
+          --values ./chart/${K8S_NAMESPACE}.yml \
+          --set config.secrets.OWM_API_KEY="${OWM_API_KEY}"
+
+pipelines:
+  demo-app-build:
+    group: demo-app
+    label_template: "0.1.${COUNT}-${git-demo-app[:8]}"
+    lock_behavior: unlockWhenFinished
+    materials:
+      git-demo-app:
+        plugin_configuration:
+          id: git.fb
+          version: 1.3.5
+        options:
+          url: https://github.com/leprechaun/demo-app.git
+          branchwhitelist: master
+        destination: ./
+
+    environment_variables:
+      # REGISTRY: VALUE PASSED DOWN FROM THE AGENT ITSELF
+      IMAGE: demo-app
+      CHART_NAME: demo-app
+      PROJECT: demo-app
+    stages:
+      - package:
+          jobs:
+            build-image:
+              tasks:
+                - script: |
+                    set -e
+
+                    docker build --pull -t ${REGISTRY}/${IMAGE}:${GO_PIPELINE_LABEL} \
+                      --label version=${GO_PIPELINE_LABEL} \
+                      --label git-commit=${GO_REVISION_GIT} \
+                      --label go-pipeline=${GO_PIPELINE_NAME} \
+                      --label go-pipeline-counter=${GO_PIPELINE_COUNTER} \
+                      --label go-pipeline-stage=${GO_STAGE_NAME} \
+                      --label go-pipeline-stage-counter=${GO_STAGE_COUNTER} \
+                      --label go-pipeline-job=${GO_JOB_NAME} \
+                      --build-arg APP_VERSION=${GO_PIPELINE_LABEL} \
+                      .
+
+                    docker tag ${REGISTRY}/${IMAGE}:${GO_PIPELINE_LABEL} ${REGISTRY}/${IMAGE}:latest
+                    docker push ${REGISTRY}/${IMAGE}:${GO_PIPELINE_LABEL}
+                    docker push ${REGISTRY}/${IMAGE}:latest
+
+            package:
+              tasks:
+                - script: |
+                    set -e
+
+                    helm lint helm-charts/${CHART_NAME}
+
+                    helm package --version "$(echo $GO_PIPELINE_LABEL | awk -F '-' '{print $1}')" --app-version $GO_PIPELINE_LABEL ./helm-charts/${CHART_NAME}
+              artifacts:
+                - build:
+                    source: demo-app-*.tgz
+                    destination: ./chart/
+                - build:
+                    source: helm-charts/values/*
+                    destination: ./chart/
+
+  demo-app-deploy-qa:
+    group: demo-app
+    label_template: "${upstream}"
+    lock_behavior: unlockWhenFinished
+    materials:
+      upstream:
+        pipeline: demo-app-build
+        stage: package
+    environment_variables:
+      K8S_NAMESPACE: qa
+      CHART_NAME: demo-app
+      PROJECT: demo-app
+    secure_variables:
+      OWM_API_KEY: "AES:gBGpZa1/pAM6YYZsXvWa0g==:v7fNkZfePjcwTfqG6d7rkZXbgVd9SjKKbiQi8GTTruqgnm5xAcdZ+TTWVSkDE49X"
+    stages:
+      - deploy:
+          jobs:
+            helm-upgrade:
+              tasks:
+                - fetch:
+                    pipeline: demo-app-build
+                    stage: package
+                    job: package
+                    source: chart/
+                    destination: ./
+                - *deploy

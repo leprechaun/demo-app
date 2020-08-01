@@ -1,0 +1,11 @@
+ingress:
+  enabled: true
+  hosts:
+    - host: demo-app.qa.k8s.fscker.org
+      paths:
+        - /
+
+  tls:
+    - secretName: demo-app-qa-k8s-fscker-org
+      hosts:
+        - demo-app.qa.k8s.fscker.org
