@@ -7,6 +7,7 @@ const prom = require('prom-client')
 const metrics = require('./lib/metrics')
 
 const sine_wave = require('./lib/sine_wave').sine_wave
+const some_io_bound_function = require('./lib/some_io_bound_function').some_io_bound_function
 
 const register = prom.register
 
@@ -15,12 +16,17 @@ app.use(logger('dev'))
 app.get('/health', async (req, res, next) => {
 
   const current = sine_wave(1200)
+  metrics.sine_wave_value.set(current)
+
+  const start_time = new Date()
+  const result_of_some_io_bound_function = await some_io_bound_function(1200)
+  const end_time = new Date()
+  metrics.time_spent_in_some_io_bound_function.inc((end_time - start_time) / 1000)
 
   res.json({
-    sine_value: current
+    sine_value: current,
+    result_of_some_io_bound_function
   })
-
-  metrics.sine_wave_value.set(current)
 })
 
 app.get('/', async (req, res, next) => {
