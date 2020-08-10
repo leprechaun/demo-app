@@ -1,7 +1,10 @@
 const express = require('express')
 const app = express()
 
-var logger = require('morgan')
+const logger = require('morgan')
+const prom = require('prom-client')
+
+const register = prom.register
 
 app.use(logger('dev'))
 
@@ -46,6 +49,15 @@ app.get('/arbitrary', async (req, res, next) => {
     res.status(200).json({
       code: "200"
     })
+  }
+})
+
+app.get('/metrics', async (req, res, next) => {
+  try {
+    res.set('Content-Type', register.contentType)
+    res.end(await register.metrics())
+  } catch (ex) {
+    res.status(500).end(ex)
   }
 })
 
