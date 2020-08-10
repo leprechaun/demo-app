@@ -6,12 +6,21 @@ const prom = require('prom-client')
 
 const metrics = require('./lib/metrics')
 
+const sine_wave = require('./lib/sine_wave').sine_wave
+
 const register = prom.register
 
 app.use(logger('dev'))
 
 app.get('/health', async (req, res, next) => {
-  res.send('ok')
+
+  const current = sine_wave(1200)
+
+  res.json({
+    sine_value: current
+  })
+
+  metrics.sine_wave_value.set(current)
 })
 
 app.get('/', async (req, res, next) => {
