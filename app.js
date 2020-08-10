@@ -22,6 +22,7 @@ app.get('/health', async (req, res, next) => {
   const result_of_some_io_bound_function = await some_io_bound_function(1200)
   const end_time = new Date()
   metrics.time_spent_in_some_io_bound_function.inc((end_time - start_time) / 1000)
+  metrics.calls_to_some_io_bound_function.inc(1)
 
   res.json({
     sine_value: current,
