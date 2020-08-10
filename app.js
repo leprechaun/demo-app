@@ -2,15 +2,19 @@ const express = require('express')
 const app = express()
 
 const logger = require('morgan')
-const prom = require('prom-client')
+const prom_bundle = require('express-prom-bundle')
 
 const metrics = require('./lib/metrics')
+const promMiddleware = prom_bundle({
+  includePath: true,
+  includeMethod: true,
+  buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 3]
+})
 
 const sine_wave = require('./lib/sine_wave').sine_wave
 const some_io_bound_function = require('./lib/some_io_bound_function').some_io_bound_function
 
-const register = prom.register
-
+app.use(promMiddleware)
 app.use(logger('dev'))
 
 app.get('/health', async (req, res, next) => {
