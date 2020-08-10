@@ -4,6 +4,8 @@ const app = express()
 const logger = require('morgan')
 const prom = require('prom-client')
 
+const metrics = require('./lib/metrics')
+
 const register = prom.register
 
 app.use(logger('dev'))
